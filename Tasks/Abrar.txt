@@ -1,0 +1,4 @@
+Task 1:
+Create a pipeline to handle input from user to autogen manager
+Input: Speech of user
+Output: User proxy input to the Chat Manager

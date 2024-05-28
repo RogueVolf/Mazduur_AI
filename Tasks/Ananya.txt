@@ -1,0 +1,4 @@
+Task 1:
+Create a tool to Check your SEO using AISEO API (Tool)
+Input: The brand name
+Output: A string report including important information about the SEO
