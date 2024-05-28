@@ -4,6 +4,10 @@ Text to Autogen Conversation
 Autogen Response back to Speech
 Repeat
 
+Autogen Structure
+User Proxy
++ maybe mutliple SOM Agent for each task
+
 Should regularly check for SEO results and Insta metrics
 Should be able to read email and inform before hand
 Should be able to respond to messages on and find out mentions of brand and do an analysis of brand image in the post
