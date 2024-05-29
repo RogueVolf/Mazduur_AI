@@ -2,3 +2,8 @@ Task 1:
 Create a pipeline to handle input from user to autogen manager
 Input: Speech of user
 Output: User proxy input to the Chat Manager
+
+Task 2:
+Create a tool to handle DBMS tasks
+Input: A task to do in the DBMS
+Output: Status of the task completion
