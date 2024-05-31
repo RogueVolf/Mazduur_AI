@@ -7,3 +7,12 @@ Task 2:
 Create a tool to handle DBMS tasks
 Input: A task to do in the DBMS
 Output: Status of the task completion
+Tool:
+Input to DB: Check if collection exists, if not create, then insert
+(Need to change the input function to accept both written and speech input based on the user)
+DB Structure
+SKU
+Name of Product
+Image base64 encoded
+Cost of Product
+Units of Product

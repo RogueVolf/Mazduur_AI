@@ -1,14 +1,17 @@
-from autogen.agentchat import ConversableAgent
+from autogen.agentchat import ConversableAgent,register_function,GroupChat,GroupChatManager
 from autogen.agentchat.conversable_agent import logger,IOStream
 from autogen import Agent
-from autogen.runtime_logging import logging_enabled, log_event, log_new_agent
-from tools import recognize_speech,speak_text
+from autogen.runtime_logging import logging_enabled, log_event
 from dotenv import load_dotenv
 from typing_extensions import Annotated,Optional,List,Dict,Union
 from typing import Any
 import inspect
-import pyttsx3
 import os
+
+#Tool imports
+from tools import recognize_speech,speak_text
+from agent_tools import insert_item_to_db,update_item_in_db,view_item
+
 
 env_path = "D:/ABRAR/1_PERSONAL/Wolf_Tech/Mazduur_AI/app/.env"
 load_dotenv(env_path)
@@ -119,7 +122,8 @@ class SpeakingAssistant(ConversableAgent):
                     if reply is None:
                         speak_text("Thank you signing off")
                         return reply
-                    reply = reply.replace('*','')
+                    elif 'tool_call' in reply:
+                        return reply
                     speak_text(command=reply)
                     return reply
         speak_text(command=self._default_auto_reply)
@@ -140,6 +144,51 @@ assistant = SpeakingAssistant(
     is_termination_msg=lambda x : x.get("content","").find("terminate") >= 0
 )
 
+tool_suggestor = ConversableAgent(
+    name="Tool-Suggestor",
+    system_message="Your role is to suggest tools that should be executed to complete a task",
+    human_input_mode="NEVER",
+    llm_config=llm_config,
+    description="An agent to suggest a tool for a particular task"
+)
+
+tool_exectuor = ConversableAgent(
+    name="Tool-Executor",
+    system_message="You are a tool executor, your job is to execute the tools suggested to you by the assistant",
+    human_input_mode="NEVER",
+    llm_config=llm_config,
+    description="An agent for executing a tool suggested by the agent"
+)
+
+groupchat = GroupChat(
+    agents=[user_proxy,assistant,tool_exectuor]
+)
+
+
+#Registering assistant tools
+register_function(
+    f=insert_item_to_db,
+    caller=assistant,
+    executor=user_proxy,
+    name="Insert-Product",
+    description="A tool to insert a product into the database"
+)
+
+register_function(
+    f=update_item_in_db,
+    caller=assistant,
+    executor=user_proxy,
+    name="Update-Product",
+    description="A tool to update a product's details in the database"
+)
+
+register_function(
+    f=view_item,
+    caller=assistant,
+    executor=user_proxy,
+    name="View-Product",
+    description="A tool to view all the details of a product"
+)
 
 def main(start_command: Annotated[str, "The starter message"]) -> None:
     user_proxy.initiate_chat(assistant, message=start_command)

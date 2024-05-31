@@ -2,6 +2,7 @@ import speech_recognition as sr
 import pyttsx3
 from typing_extensions import Annotated
 
+#Function to convert text to speech
 def recognize_speech() -> Annotated[str,"Returns the user spoken command"] :
     recog = sr.Recognizer()
     try:
@@ -28,3 +29,12 @@ def recognize_speech() -> Annotated[str,"Returns the user spoken command"] :
     except Exception as e:
         print(f'Exception {e} occured')
         return False
+    
+# Function to convert text to speech
+def speak_text(command:Annotated[str,"The text to convert to speech"]) -> None:
+    # Initialize the engine
+    engine = pyttsx3.init()
+    engine.say(command)
+    engine.runAndWait()
+    return
+
