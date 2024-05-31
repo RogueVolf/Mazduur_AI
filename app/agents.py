@@ -1,8 +1,8 @@
-from autogen.agentchat import AssistantAgent,UserProxyAgent
-from autogen.agentchat.conversable_agent import logger
+from autogen.agentchat import ConversableAgent
+from autogen.agentchat.conversable_agent import logger,IOStream
 from autogen import Agent
 from autogen.runtime_logging import logging_enabled, log_event, log_new_agent
-from tools import recognize_speech
+from tools import recognize_speech,speak_text
 from dotenv import load_dotenv
 from typing_extensions import Annotated,Optional,List,Dict,Union
 from typing import Any
@@ -22,7 +22,7 @@ config_list = [{"model": "llama3-70b-8192",
 llm_config = {"config_list":config_list,"temperature":0.75,"cache_seed":None}
 
 
-class ListeningUser(UserProxyAgent):
+class ListeningUser(ConversableAgent):
     def get_human_input(self, prompt: str) -> str:
         """Get human input.
 
@@ -35,19 +35,18 @@ class ListeningUser(UserProxyAgent):
             str: human input.
         """
         
+        iostream = IOStream.get_default()
 
-        reply = recognize_speech()
+        choice = iostream.input("Choose your input type\n1.Type\n2.Speak\n")
+        if choice == '1':
+            reply = iostream.input("Enter your command\n")
+        else:
+            reply = recognize_speech()
         self._human_input.append(reply)
         return reply
 
 
-class SpeakingAssistant(AssistantAgent):
-    # Function to convert text to speech
-    def SpeakText(self,command):
-        # Initialize the engine
-        engine = pyttsx3.init()
-        engine.say(command)
-        engine.runAndWait()
+class SpeakingAssistant(ConversableAgent):
 
     def generate_reply(
         self,
@@ -118,11 +117,12 @@ class SpeakingAssistant(AssistantAgent):
                     )
                 if final:
                     if reply is None:
-                        self.SpeakText("Thank you signing off")
+                        speak_text("Thank you signing off")
                         return reply
-                    self.SpeakText(command=reply)
+                    reply = reply.replace('*','')
+                    speak_text(command=reply)
                     return reply
-        self.SpeakText(command=self._default_auto_reply)
+        speak_text(command=self._default_auto_reply)
         return self._default_auto_reply
 
 user_proxy = ListeningUser(
