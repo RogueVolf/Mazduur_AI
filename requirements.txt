@@ -1,0 +1,5 @@
+pyautogen==0.2.27
+python-dotenv==1.0.1
+pyttsx3==2.90
+SpeechRecognition==3.10.4
+typing_extensions==4.12.0

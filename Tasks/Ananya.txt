@@ -1,0 +1,4 @@
+Task 1:
+Create a tool to create product descriptions and keywords from an Image
+Input: The product name and image url
+Output: Two strings - Description and Keywords comma seperated

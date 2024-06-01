@@ -1,0 +1,4 @@
+Task 1:
+Create a tool to Check your Instagram Business Account Metrics
+Input: Username and Password (Anything else required)
+Output: A string report including important social media metrics for the analyzer
