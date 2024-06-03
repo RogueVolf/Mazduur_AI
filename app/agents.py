@@ -1,4 +1,5 @@
 from autogen.agentchat import ConversableAgent,register_function,GroupChat,GroupChatManager
+from autogen.agentchat.contrib.society_of_mind_agent import SocietyOfMindAgent
 from autogen.agentchat.conversable_agent import logger,IOStream
 from autogen import Agent
 from autogen.runtime_logging import logging_enabled, log_event
@@ -9,7 +10,7 @@ import inspect
 import os
 
 #Tool imports
-from tools import recognize_speech,speak_text
+from tools import recognize_speech,speak_text,use_llm
 from agent_tools import insert_item_to_db,update_item_in_db,view_item
 
 
@@ -129,6 +130,103 @@ class SpeakingAssistant(ConversableAgent):
         speak_text(command=self._default_auto_reply)
         return self._default_auto_reply
 
+
+controller = ConversableAgent(
+    name="Admin",
+    system_message="""You are the conversation admin that has to make sure a given task is completed.
+    Reply TERMINATE when you are satisfied the task is completed, or an error happens""",
+    llm_config=llm_config,
+    human_input_mode="NEVER",
+    description="The admin agent to decide if the task is completed or not"
+)
+
+tool_suggestor = ConversableAgent(
+    name="Tool-Suggestor",
+    system_message="""Your role is to suggest tools that should be executed to complete a task
+    The context of all tasks and questions are about the products of the user
+    """,
+    human_input_mode="NEVER",
+    llm_config=llm_config,
+    description="An agent to suggest a tool for a particular task"
+)
+
+tool_executor = ConversableAgent(
+    name="Tool-Executor",
+    system_message="You are a tool executor, your job is to execute the tools suggested to you by the assistant",
+    human_input_mode="NEVER",
+    llm_config=llm_config,
+    description="An agent for executing a tool suggested by the agent"
+)
+
+#Registering assistant tools
+register_function(
+    f=insert_item_to_db,
+    caller=tool_suggestor,
+    executor=tool_executor,
+    name="Insert-Product",
+    description="A tool to insert a product into the database"
+)
+
+register_function(
+    f=update_item_in_db,
+    caller=tool_suggestor,
+    executor=tool_executor,
+    name="Update-Product",
+    description="A tool to update a product's details in the database"
+)
+
+register_function(
+    f=view_item,
+    caller=tool_suggestor,
+    executor=tool_executor,
+    name="View-Product",
+    description="A tool to view all the details of a product"
+)
+
+#Setting up internal conversation framework
+db_groupchat = GroupChat(
+    agents=[tool_suggestor,tool_executor,controller],
+    messages=[],
+    max_round=10,
+    speaker_selection_method="round_robin",
+    allow_repeat_speaker=False,
+    send_introductions=True,
+    role_for_select_speaker_messages="user"
+)
+
+db_manager = GroupChatManager(
+    name="DB-Manager",
+    groupchat=db_groupchat,
+    system_message="""
+    You have three agents to manage
+    Tool Suggestor - When the user wants to call a tool or the plan requires a tool call
+    Tool-Executor - When a suggested tool needs to be executed
+    Admin - The agent to confirm if the task is completed or a next step is required
+    """,
+    is_termination_msg=lambda x: (x.get("content", "").find("TERMINATE") >= 0),
+    llm_config=False,
+)
+
+# setting SOM Agent
+# Response Summariser of the Internal Monologue
+
+
+def response_summariser(self: SocietyOfMindAgent, messages: List[Dict]) -> Annotated[str, "The summarised response"]:
+    prompt = f"""
+        Please summarise this internal monologue between agents in a communicative network and extract information from it
+        Include important numbers and information
+        The summary should be such that it can be spoken out to someone
+        {messages[-5:]}
+"""
+    response = use_llm(prompt)
+
+    return response
+commander_agent = SocietyOfMindAgent(
+    name="Commander-Agent",
+    chat_manager=db_manager,
+    llm_config=llm_config,
+)
+
 user_proxy = ListeningUser(
     name="User",
     human_input_mode="ALWAYS",
@@ -138,57 +236,39 @@ user_proxy = ListeningUser(
 
 assistant = SpeakingAssistant(
     name="Assistant",
-    system_message="You are a handy assistant that only replies to query from your knowledge. You do not write any code",
+    system_message="""You are a handy assistant that only replies to query from your knowledge. You do not write any code
+    You will receieve a message from the Commander-Agent, from that extract the answer that the user requires
+    Call the Commander-Agent when a task needs to be done by the user""",
     llm_config=llm_config,
-    description="An assistant agent that can help answer common queries",
-    is_termination_msg=lambda x : x.get("content","").find("terminate") >= 0
+    description="An assistant agent that can help answer queries",
+    is_termination_msg=lambda x: x.get("content", "").find("terminate") >= 0
 )
 
-tool_suggestor = ConversableAgent(
-    name="Tool-Suggestor",
-    system_message="Your role is to suggest tools that should be executed to complete a task",
+# setting up main conversation loop
+main_groupchat = GroupChat(
+    agents=[user_proxy, commander_agent, assistant],
+    messages=[],
+    admin_name="User",
+    speaker_selection_method="round_robin",
+    send_introductions=True,
+    select_speaker_auto_verbose=True,
+    allow_repeat_speaker=False,
+    role_for_select_speaker_messages="user"
+)
+
+main_chat_manager = GroupChatManager(
+    groupchat=main_groupchat,
+    name="Main-Manager",
     human_input_mode="NEVER",
-    llm_config=llm_config,
-    description="An agent to suggest a tool for a particular task"
-)
-
-tool_exectuor = ConversableAgent(
-    name="Tool-Executor",
-    system_message="You are a tool executor, your job is to execute the tools suggested to you by the assistant",
-    human_input_mode="NEVER",
-    llm_config=llm_config,
-    description="An agent for executing a tool suggested by the agent"
-)
-
-groupchat = GroupChat(
-    agents=[user_proxy,assistant,tool_exectuor]
-)
-
-
-#Registering assistant tools
-register_function(
-    f=insert_item_to_db,
-    caller=assistant,
-    executor=user_proxy,
-    name="Insert-Product",
-    description="A tool to insert a product into the database"
-)
-
-register_function(
-    f=update_item_in_db,
-    caller=assistant,
-    executor=user_proxy,
-    name="Update-Product",
-    description="A tool to update a product's details in the database"
-)
-
-register_function(
-    f=view_item,
-    caller=assistant,
-    executor=user_proxy,
-    name="View-Product",
-    description="A tool to view all the details of a product"
+    system_message="""
+    You have three agents to manage
+    Assistant - An assistant agent that can help answer queries
+    Commander-Agent - An agent to acheive a given task
+    User - The agent to confirm if the task is completed or a next step is required
+    """,
+    is_termination_msg=lambda x: (x.get("content", "").find("TERMINATE") >= 0),
+    llm_config=False,
 )
 
 def main(start_command: Annotated[str, "The starter message"]) -> None:
-    user_proxy.initiate_chat(assistant, message=start_command)
+    user_proxy.initiate_chat(main_chat_manager, message=start_command)

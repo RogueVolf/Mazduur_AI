@@ -18,10 +18,16 @@ def insert_item(product : Annotated[str,"The name of the product"],
            cost : Annotated[float,"The cost of the product"],
            selling_price:Annotated[float,"The selling price of the product"],
            units : Annotated[int,"The number of product units"]) -> Annotated[bool,"True if successfully inserted or else False"]:
-    
+    """
+        This function adds an item to the database after taking input from the user
+        
+        Returns:
+            True: if the addition was a success
+            False: if the addition was not successful
+    """
     insert_entry = {
         '_id': ''.join(random.choices("0123456789", k=5)),
-        'product' : product,
+        'product' : product.lower(),
         'image' : image,
         'cost' : cost,
         'selling_price' : selling_price,
@@ -36,14 +42,19 @@ def insert_item(product : Annotated[str,"The name of the product"],
         return False
     
 def get_item_details(product:Annotated[str,"The name of the product"]) -> Annotated[str,"Details of the product"]:
+    """
+        This function takes a product name and returns all the details about the product
 
-    query = {'product' : product}
+        Returns:
+            str: A string that contains all the product details
+    """
+    query = {'product' : product.lower()}
 
     items = collection.find(query)
 
     final_string = ""
     
-    if len(items) == 0:
+    if collection.count_documents(query) == 0:
         return "No product by that name"
         
     for item in items:
@@ -55,6 +66,14 @@ def get_item_details(product:Annotated[str,"The name of the product"]) -> Annota
 def update_item(product:Annotated[str,"The name of the product"],
                 field:Annotated[str,"The field that needs to be updated"],
                 new_value: Annotated[Any,"The new value to be entered"]) -> Annotated[bool,"True if successfully updated or else False"]:
+    """
+        This function takes the product name and updates the required field with a new value
+
+        Returns:
+            True: If the update was successful
+            False: If the update was unsuccessful
+    """
+
     query = {'product':product}
     updated_values = {"$set":{field:new_value}}
 

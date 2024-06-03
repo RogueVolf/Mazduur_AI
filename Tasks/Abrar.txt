@@ -16,3 +16,10 @@ Name of Product
 Image base64 encoded
 Cost of Product
 Units of Product
+
+
+
+
+User -> Assistant -> SOM<------------------------------------|   
+                        |                                    |
+                        |-> Tool Suggestor -> Tool Executor->|
