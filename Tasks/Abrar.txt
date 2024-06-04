@@ -23,3 +23,11 @@ Units of Product
 User -> Assistant -> SOM<------------------------------------|   
                         |                                    |
                         |-> Tool Suggestor -> Tool Executor->|
+
+
+Task 3:
+Stablising the DB Agent tools
+Done
+
+Task 4:
+Find manufacturer and help do internet research to founders

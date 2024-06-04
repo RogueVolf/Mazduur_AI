@@ -52,7 +52,7 @@ def recognize_speech() -> Annotated[str,"Returns the user spoken command"] :
             audio = recog.listen(source)
 
             #using Google to recognize spoken command
-            command = recog.recognize_google(audio)
+            command = recog.recognize_google(audio,language="en-IN")
 
             return command.lower()
     except sr.RequestError as e:

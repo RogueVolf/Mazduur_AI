@@ -58,7 +58,10 @@ def get_item_details(product:Annotated[str,"The name of the product"]) -> Annota
         return "No product by that name"
         
     for item in items:
-        final_string += f"Product Details\nSKU:{item['_id']} Product:{item['product']} Cost:{item['cost']} Selling Price:{item['selling_price']} Units left:{item['units']}\n"
+        final_string += f"""Product Details are the SKU is {item['_id']} for {item['product']} 
+        The Cost Price is {item['cost']}
+        Its selling at {item['selling_price']} 
+        The number of Units left is {item['units']}\n"""
 
     return final_string
 
@@ -78,10 +81,14 @@ def update_item(product:Annotated[str,"The name of the product"],
     updated_values = {"$set":{field:new_value}}
 
     try:
-        collection.update_one(query,updated_values)
-        return True
+        result = collection.update_one(query, updated_values)
+        if result.matched_count > 0:
+            return True
+        else:
+            print(f"No document found with product name: {product}")
+            return False
     except Exception as e:
-        print(f"Exception happened {e}")
+        print(f"Exception happened: {e}")
         return False
 
 

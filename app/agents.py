@@ -1,4 +1,4 @@
-from autogen.agentchat import ConversableAgent,register_function,GroupChat,GroupChatManager
+from autogen.agentchat import ConversableAgent,register_function,GroupChat,GroupChatManager,UserProxyAgent
 from autogen.agentchat.contrib.society_of_mind_agent import SocietyOfMindAgent
 from autogen.agentchat.conversable_agent import logger,IOStream
 from autogen import Agent
@@ -11,7 +11,7 @@ import os
 
 #Tool imports
 from tools import recognize_speech,speak_text,use_llm
-from agent_tools import insert_item_to_db,update_item_in_db,view_item
+from agent_tools import insert_item_to_db,view_item,update_cost_price,update_selling_price,update_units
 
 
 env_path = "D:/ABRAR/1_PERSONAL/Wolf_Tech/Mazduur_AI/app/.env"
@@ -130,20 +130,12 @@ class SpeakingAssistant(ConversableAgent):
         speak_text(command=self._default_auto_reply)
         return self._default_auto_reply
 
-
-controller = ConversableAgent(
-    name="Admin",
-    system_message="""You are the conversation admin that has to make sure a given task is completed.
-    Reply TERMINATE when you are satisfied the task is completed, or an error happens""",
-    llm_config=llm_config,
-    human_input_mode="NEVER",
-    description="The admin agent to decide if the task is completed or not"
-)
-
 tool_suggestor = ConversableAgent(
     name="Tool-Suggestor",
-    system_message="""Your role is to suggest tools that should be executed to complete a task
-    The context of all tasks and questions are about the products of the user
+    system_message="""
+    You are a Tool Suggestor for an E Commerce Company
+    Your role is to suggest tools that should be executed to complete a task
+    The context of all tasks and questions are about the products of the company
     """,
     human_input_mode="NEVER",
     llm_config=llm_config,
@@ -168,12 +160,29 @@ register_function(
 )
 
 register_function(
-    f=update_item_in_db,
+    f=update_units,
     caller=tool_suggestor,
     executor=tool_executor,
-    name="Update-Product",
-    description="A tool to update a product's details in the database"
+    name="Update-Product-Units",
+    description="A tool to update the number of units of a product in the database"
 )
+
+register_function(
+    f=update_cost_price,
+    caller=tool_suggestor,
+    executor=tool_executor,
+    name="Update-Product-Cost-Price",
+    description="A tool to update the cost price of a product in the database"
+)
+
+register_function(
+    f=update_selling_price,
+    caller=tool_suggestor,
+    executor=tool_executor,
+    name="Update-Product-Selling-Price",
+    description="A tool to update the selling price of a product in the database"
+)
+
 
 register_function(
     f=view_item,
@@ -183,49 +192,6 @@ register_function(
     description="A tool to view all the details of a product"
 )
 
-#Setting up internal conversation framework
-db_groupchat = GroupChat(
-    agents=[tool_suggestor,tool_executor,controller],
-    messages=[],
-    max_round=10,
-    speaker_selection_method="round_robin",
-    allow_repeat_speaker=False,
-    send_introductions=True,
-    role_for_select_speaker_messages="user"
-)
-
-db_manager = GroupChatManager(
-    name="DB-Manager",
-    groupchat=db_groupchat,
-    system_message="""
-    You have three agents to manage
-    Tool Suggestor - When the user wants to call a tool or the plan requires a tool call
-    Tool-Executor - When a suggested tool needs to be executed
-    Admin - The agent to confirm if the task is completed or a next step is required
-    """,
-    is_termination_msg=lambda x: (x.get("content", "").find("TERMINATE") >= 0),
-    llm_config=False,
-)
-
-# setting SOM Agent
-# Response Summariser of the Internal Monologue
-
-
-def response_summariser(self: SocietyOfMindAgent, messages: List[Dict]) -> Annotated[str, "The summarised response"]:
-    prompt = f"""
-        Please summarise this internal monologue between agents in a communicative network and extract information from it
-        Include important numbers and information
-        The summary should be such that it can be spoken out to someone
-        {messages[-5:]}
-"""
-    response = use_llm(prompt)
-
-    return response
-commander_agent = SocietyOfMindAgent(
-    name="Commander-Agent",
-    chat_manager=db_manager,
-    llm_config=llm_config,
-)
 
 user_proxy = ListeningUser(
     name="User",
@@ -246,7 +212,7 @@ assistant = SpeakingAssistant(
 
 # setting up main conversation loop
 main_groupchat = GroupChat(
-    agents=[user_proxy, commander_agent, assistant],
+    agents=[user_proxy, tool_suggestor, tool_executor],
     messages=[],
     admin_name="User",
     speaker_selection_method="round_robin",
@@ -266,7 +232,7 @@ main_chat_manager = GroupChatManager(
     Commander-Agent - An agent to acheive a given task
     User - The agent to confirm if the task is completed or a next step is required
     """,
-    is_termination_msg=lambda x: (x.get("content", "").find("TERMINATE") >= 0),
+    is_termination_msg=lambda x: (x.get("content", "").find("terminate") >= 0) or (x.get("content", "").find("done") >= 0),
     llm_config=False,
 )
 

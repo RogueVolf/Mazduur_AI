@@ -10,21 +10,37 @@ def insert_item_to_db() -> Annotated[bool,"True if the item was added successful
             True: if the addition was a success
             False: if the addition was not successful
     """
+    questions = {
+        'product': "What is the product name",
+        'cost_price': "What is the cost of the product",
+        'selling_price': "What is the selling price of the product",
+        'units': "How many units of the product do you have"
+    }
 
-    speak_text("What is the product name")
-    product_name = recognize_speech()
-    speak_text("What is the image file name")
-    image_file = recognize_speech()
-    speak_text("What is the cost of the product")
-    cost_price = float(recognize_speech())
-    speak_text("What is the selling price of the product")
-    selling_price = float(recognize_speech())
-    speak_text("How many units of the product do you have")
-    units = int(recognize_speech())
+    answers = {}
+    for question in questions.keys():
+        correct = "No"
+        value = ""
+        while(correct!="yes"):
+            speak_text(questions[question])
+            value = recognize_speech()
+            speak_text(f"You replied {value}, tell yes if correct")
+            correct = recognize_speech()
+        if question == "units":
+            value = int(value)
+        elif question in ['cost_price','selling_price']:
+            value = float(value)
 
-    result = insert_item(product_name,image_file,cost_price,selling_price,units)
+        answers[question] = value
 
-    return result
+    result = insert_item(answers['product'],'None',answers['cost_price'],answers['selling_price'],answers['units'])
+    if result:
+        speak_text(f"Inserted {answers['product']} successfully")
+        return result
+    else:
+        speak_text("""Could not insert product
+                   Please try again""")
+        return result
 
 def view_item(product_name:Annotated[str,"The product name"]) -> Annotated[str,"The product details"]:
     """
@@ -34,29 +50,65 @@ def view_item(product_name:Annotated[str,"The product name"]) -> Annotated[str,"
             str: A string that contains all the product details
     """
     result = get_item_details(product_name)
-
+    speak_text(result)
     return result
 
-def update_item_in_db(product_name: Annotated[str,"The product name"]) -> Annotated[bool,"True if successfully updated or else False"]:
+def update_units(product_name: Annotated[str,"The product name"],new_units: Annotated[int,"The number of units to change to"]) -> Annotated[bool,"True if successfully updated or else False"]:
     """
-        This tool takes the product name and updates the required field with a new value
+        This tool takes the product name and updates the units field with the new_units value
 
         Returns:
             True: If the update was successful
             False: If the update was unsuccessful
     """
-    speak_text("What field do you want to update")
-    field_name = recognize_speech()
-    speak_text("What is the new value")
-    new_value = recognize_speech()
-
-    if field_name in ['cost','selling_price']:
-        new_value = float(new_value)
-    elif field_name in ['units']:
-        new_value = int(new_value)
-
-    result = update_item(product_name,field_name,new_value)
-
-    return result
+    if not isinstance(new_units,int):
+        speak_text("Please tell me an integer value for the units")
+        return False
+    result = update_item(product_name.lower(),'units',new_units)
+    if result:
+        speak_text(f"Updated {product_name} units successfully to {new_units}")
+        return result
+    else:
+        speak_text("Could not update value due to some error please try again")
+        return result
 
 
+def update_cost_price(product_name: Annotated[str, "The product name"], new_cp: Annotated[float, "The new cost price of the product"]) -> Annotated[bool, "True if successfully updated or else False"]:
+    """
+        This tool takes the product name and updates the cost price field with the new_cp value
+
+        Returns:
+            True: If the update was successful
+            False: If the update was unsuccessful
+    """
+    if not isinstance(new_cp, float):
+        speak_text("Please tell me a correct value for the cost price")
+        return False
+    result = update_item(product_name.lower(), 'cost', new_cp)
+    if result:
+        speak_text(f"Updated {product_name} cost price successfully to {new_cp}")
+        return result
+    else:
+        speak_text("Could not update value due to some error please try again")
+        return result
+
+
+def update_selling_price(product_name: Annotated[str, "The product name"], new_sp: Annotated[float, "The new selling price of the product"]) -> Annotated[bool, "True if successfully updated or else False"]:
+    """
+        This tool takes the product name and updates the selling price field with the new_sp value
+
+        Returns:
+            True: If the update was successful
+            False: If the update was unsuccessful
+    """
+    if not isinstance(new_sp, float):
+        speak_text("Please tell me a correct value for the cost price")
+        return False
+    result = update_item(product_name.lower(), 'selling_price', new_sp)
+    if result:
+        speak_text(
+            f"Updated {product_name} selling price successfully to {new_sp}")
+        return result
+    else:
+        speak_text("Could not update value due to some error please try again")
+        return result
