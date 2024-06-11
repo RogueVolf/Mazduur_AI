@@ -1,6 +1,15 @@
-from tools import recognize_speech,speak_text
-from db_tools import insert_item,get_item_details,update_item
 from typing_extensions import Annotated
+import requests
+import json
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+import os
+
+from tools import recognize_speech,speak_text,use_llm
+from db_tools import insert_item,get_item_details,update_item
+
+env_path = "D:/ABRAR/1_PERSONAL/Wolf_Tech/Mazduur_AI/app/.env"
+load_dotenv(env_path)
 
 def insert_item_to_db() -> Annotated[bool,"True if the item was added successfully, False if not"]:
     """
@@ -72,7 +81,6 @@ def update_units(product_name: Annotated[str,"The product name"],new_units: Anno
         speak_text("Could not update value due to some error please try again")
         return result
 
-
 def update_cost_price(product_name: Annotated[str, "The product name"], new_cp: Annotated[float, "The new cost price of the product"]) -> Annotated[bool, "True if successfully updated or else False"]:
     """
         This tool takes the product name and updates the cost price field with the new_cp value
@@ -91,7 +99,6 @@ def update_cost_price(product_name: Annotated[str, "The product name"], new_cp: 
     else:
         speak_text("Could not update value due to some error please try again")
         return result
-
 
 def update_selling_price(product_name: Annotated[str, "The product name"], new_sp: Annotated[float, "The new selling price of the product"]) -> Annotated[bool, "True if successfully updated or else False"]:
     """
@@ -112,3 +119,62 @@ def update_selling_price(product_name: Annotated[str, "The product name"], new_s
     else:
         speak_text("Could not update value due to some error please try again")
         return result
+
+def find_product(search_query: Annotated[str,"The product search query"]) -> Annotated[str,"The search results formatted"]:
+    """
+        This tool takes a search query for a product to find
+
+        Returns
+            str: A paragraph with the top 5 sellers found for that product
+    """
+    
+
+    modified_search_query = search_query + ' -site:amazon.com -site:justdial.com'
+
+
+    url = "https://google.serper.dev/search"
+
+    payload = json.dumps({
+        "q": modified_search_query,
+        "location": "Chennai, Tamil Nadu, India", #get this when setting up client account
+        "gl": "in",
+        "num": 5
+    })
+    headers = {
+        'X-API-KEY': os.environ['SERPER_KEY'],
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload)
+
+    values = response.json()["organic"]
+
+    links_to_scrape = [x['link'] for x in values]
+
+    information = ""
+
+    for i,url in enumerate(links_to_scrape):
+        data = requests.get(url)
+        soup = BeautifulSoup(data.content, 'html.parser')
+        # Extract and clean the body text
+        body_text = soup.get_text()
+        cleaned_text = ' '.join(body_text.split())[:10000]
+
+        information += f'Seller {i+1}\n' + use_llm(f"""
+                            {cleaned_text}
+                            This is the data from a website for the following search key
+                            {search_query}
+
+                            You are an expert data analyst, summarise this website data in maximum five points.
+                            The details should be oriented for a small startup founder and should include import details like MOQ, Price, Location of seller,Contact of the seller
+                            Focus on providing information that fulfills the query.
+                            The answer should be formatted in the following manner, no additional content but this particular format
+
+                            Seller Name:
+                            Product Description:
+                            MOQ and Price:
+                            Seller Contact:
+                            Seller Location:
+                            """) + '\n'
+
+    return information

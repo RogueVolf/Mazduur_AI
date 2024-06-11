@@ -31,3 +31,24 @@ Done
 
 Task 4:
 Find manufacturer and help do internet research to founders
+Workflow
+Collect information about requirement from the client, will be paragraph or spoken
+Find a few products
+Ask for further filtaration
+Find a few products
+Ask for further filtaration
+Once user satisfied, show similar products
+
+Example:
+User: I want to buy cardboard boxes to pack my products
+Find cardboard boxes suppliers on Indiamart
+Assistant: Are you looking for big cardboard boxes or small?
+User: Something small for my jewellery
+Find small cardboard boxes
+Assistant: Are you looking for corrugated ones or simple ones?
+User: What is the difference?
+Explainer: corrugated ones offer better protection than simple ones
+User: I want corrugated ones
+Assistant: I have a few suppliers: 1 2 3
+User: Can you find me someone with less than 100 MOQ
+Assistant: These are the suppliers I have shortlisted
