@@ -4,6 +4,7 @@ from helper import get_database_url
 import datetime
 
 DATABASE_URL = get_database_url()
+print(DATABASE_URL)
 # Define the database connection
 engine = create_engine(DATABASE_URL, echo=True)
 Base = declarative_base()
@@ -16,7 +17,8 @@ class ClientID_Table(Base):
     client_id = Column(String,unique=True)
     client_name = Column(String)
     business_name = Column(String)
-    table_name = Column(String,unique=True)
+    bin_name = Column(String,unique=True)
+    key_name = Column(String,unique=True)
 
 
 class LastUpdate(Base):

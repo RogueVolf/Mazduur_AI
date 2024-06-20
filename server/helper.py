@@ -13,5 +13,5 @@ def get_base_path():
 
 def get_database_url():
     base_path = get_base_path()
-    db_path = os.path.join(base_path,'server', 'db', 'auto_db.sqlite')
+    db_path = os.path.join(base_path, 'db', 'auto_db.sqlite')
     return f"sqlite:///{db_path}"
