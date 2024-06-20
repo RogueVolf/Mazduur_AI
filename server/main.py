@@ -1,5 +1,6 @@
 import os
 import sys
+import base64
 from fastapi import FastAPI,Response,Path,Body
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -32,7 +33,6 @@ def get_base_path():
 def get_database_url():
     base_path = get_base_path()
     db_path = os.path.join(base_path,'db', 'auto_db.sqlite')
-    print(f"Database path: {db_path}")
     return f"sqlite:///{db_path}"
 
 
@@ -101,50 +101,36 @@ def get_dynamic_table(client_id: Annotated[str, "The client ID"]):
 #         return (False,f"Error {e}")
     
 
-def get_db_details(client_id : Annotated[str, "The client ID"]
+def get_dm_details(client_id : Annotated[str, "The client ID"]
                    ) -> Annotated[Union[List[Dict[str, Any]], str],"Returns dictionary of rows or error string"]:
     try:
         session = Session()
-        table_name = f"client_{client_id}"
-        client_dm_table = type(table_name, (Base,), {
-            '__tablename__': table_name,
-            'id': Column(Integer, primary_key=True, autoincrement=True),
-            'message': Column(String, nullable=False),
-            'sender': Column(String, nullable=False),
-            'timestamp': Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
-        })
-
-        # Checking if table already exists and using extend_existing if necessary
-        if table_name in Base.metadata.tables:
-            client_dm_table.__table__.extend_existing = True
-        rows = session.query(client_dm_table).all()
-        row_details = [{"id": row.id, "message": row.message,
-                        "sender": row.sender, "timestamp": row.timestamp} for row in rows]
+        client = session.query(ClientID_Table).filter(ClientID_Table.client_id == client_id).first()
+        data_bin = None
+        with open(client.bin_name,'rb') as file:
+            data_bin = pk.load(file)
+        row_details = [{
+            'insta_id': base64.b64encode(row['insta_id']).decode('utf-8'),
+            'message': base64.b64encode(row['message']).decode('utf-8'),
+            'timestamp': row['timestamp'].strftime("%d-%m-%y %H:%M:%S.%f")[:-3]
+        } for row in data_bin]
+        print(row_details)
         session.close()
         return row_details
     except Exception as e:
         return f"Failed due to {e}"
 
 
-def clear_db_details(client_id: Annotated[str, "The client ID"]
+def clear_dm_details(client_id: Annotated[str, "The client ID"]
                      ) -> Annotated[Tuple[bool, str], "A tuple with True if it executes and status message"]:
     try:
         session = Session()
-        table_name = f"client_{client_id}"
-        client_dm_table = type(table_name, (Base,), {
-            '__tablename__': table_name,
-            'id': Column(Integer, primary_key=True, autoincrement=True),
-            'message': Column(String, nullable=False),
-            'sender': Column(String, nullable=False),
-            'timestamp': Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
-        })
-
-        # Checking if table already exists and using extend_existing if necessary
-        if table_name in Base.metadata.tables:
-            client_dm_table.__table__.extend_existing = True
-
-        session.query(client_dm_table).delete()
-        session.commit()
+        client = session.query(ClientID_Table).filter(
+            ClientID_Table.client_id == client_id).first()
+        data_bin = []
+        with open(client.bin_name,'wb') as file:
+            pk.dump(data_bin,file)
+        session.close()
         return True,"Success"
     except Exception as e:
         return False,f"Failed due to {e}"
@@ -209,7 +195,7 @@ async def new_dm(client_id:str = Path(...,description="The client id who got the
                 {
                     'insta_id' : encrypt_data(body.insta_id,client_public_key),
                     'message' : encrypt_data(body.message,client_public_key),
-                    'timestamp' : datetime.datetime.now()
+                    'timestamp': datetime.datetime.now()
                 }
             )
 
@@ -224,24 +210,30 @@ async def new_dm(client_id:str = Path(...,description="The client id who got the
         return JSONResponse(content=content,status_code=500)
 
  
-@app.get('/update_dms/{client_id}',response_class=JSONResponse)
-async def update_dms(client_id:str = Path(...,description="The client id requesting updates")):
-    session = Session()
-    last_update_record = session.query(LastUpdate).filter(LastUpdate.client_id == client_id).first()
-    last_update_time = last_update_record.last_updated_time
-    current_time = datetime.datetime.now()
-    if last_update_time < current_time:
+@app.get('/copy_dms/{client_id}',response_class=JSONResponse)
+async def copy_dms(client_id:str = Path(...,description="The client id requesting updates")):
+    try:   
+        session = Session()
+        current_time = datetime.datetime.now()
+        last_update_record = session.query(LastUpdate).filter(LastUpdate.client_id == client_id).first()
+        if last_update_record is None:
+            last_update = LastUpdate(client_id = client_id,last_updated_time = current_time)
+            session.add(last_update)
+            session.commit()
+            last_update_record = session.query(LastUpdate).filter(LastUpdate.client_id == client_id).first()
+
         last_update_record.last_updated_time = current_time
-        row_details = get_db_details(client_id)
-        status,message = clear_db_details(client_id)
+        session.commit()
+        row_details = get_dm_details(client_id)
+        status,message = clear_dm_details(client_id)
 
         if not status:
-            content = {'failed': message}
+            content = {'failed': f"While deleting {message}"}
             return JSONResponse(content=content,status_code=500)
         
         content = {'db_details':row_details}
         return JSONResponse(content=content,status_code=200)
-    
-    else:
-        content = {'db_details':'DB up to date'}
-        return JSONResponse(content=content,status_code=204)
+        
+    except Exception as e:
+        content = {'failed':f"In main {e}"}
+        return JSONResponse(content=content,status_code=500)
