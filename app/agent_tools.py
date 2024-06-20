@@ -4,6 +4,7 @@ import json
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import os
+import traceback
 
 from tools import recognize_speech,speak_text,use_llm
 from db_tools import insert_item,get_item_details,update_item
@@ -124,19 +125,23 @@ def find_product(search_query: Annotated[str,"The product search query"]) -> Ann
     """
         This tool takes a search query for a product to find
 
+        Parameters:
+            search_query (str): The search query to gather information about a product
+
         Returns
             str: A paragraph with the top 5 sellers found for that product
     """
     
 
-    modified_search_query = search_query + ' -site:amazon.com -site:justdial.com'
+    modified_search_query = search_query + ' -site:amazon.com -site:justdial.com -site:amazon.in'
 
 
     url = "https://google.serper.dev/search"
 
     payload = json.dumps({
         "q": modified_search_query,
-        "location": "Chennai, Tamil Nadu, India", #get this when setting up client account
+        # get this when setting up client account
+        "location": "Bengaluru, Karnataka, India",
         "gl": "in",
         "num": 5
     })
@@ -144,37 +149,44 @@ def find_product(search_query: Annotated[str,"The product search query"]) -> Ann
         'X-API-KEY': os.environ['SERPER_KEY'],
         'Content-Type': 'application/json'
     }
+    try:
+        response = requests.request("POST", url, headers=headers, data=payload)
 
-    response = requests.request("POST", url, headers=headers, data=payload)
+        values = response.json()["organic"]
 
-    values = response.json()["organic"]
+        links_to_scrape = [x['link'] for x in values]
 
-    links_to_scrape = [x['link'] for x in values]
+        information = ""
 
-    information = ""
+        for i,url in enumerate(links_to_scrape):
+            data = requests.get(url)
+            soup = BeautifulSoup(data.content, 'html.parser')
+            # Extract and clean the body text
+            body_text = soup.get_text()
+            cleaned_text = ' '.join(body_text.split())[:10000]
 
-    for i,url in enumerate(links_to_scrape):
-        data = requests.get(url)
-        soup = BeautifulSoup(data.content, 'html.parser')
-        # Extract and clean the body text
-        body_text = soup.get_text()
-        cleaned_text = ' '.join(body_text.split())[:10000]
+            information += f'Seller {i+1}\n\nWebsite: {url}' + use_llm(f"""
+                                {cleaned_text}
+                                This is the data from a website for the following search key
+                                {search_query}
 
-        information += f'Seller {i+1}\n' + use_llm(f"""
-                            {cleaned_text}
-                            This is the data from a website for the following search key
-                            {search_query}
+                                You are an expert data analyst, summarise this website data in maximum five points.
+                                The details should be oriented for a small startup founder and should include import details like MOQ, Price, Location of seller,Contact of the seller
+                                Focus on providing information that fulfills the query.
+                                The answer should be formatted in the following manner, no additional content but this particular format
 
-                            You are an expert data analyst, summarise this website data in maximum five points.
-                            The details should be oriented for a small startup founder and should include import details like MOQ, Price, Location of seller,Contact of the seller
-                            Focus on providing information that fulfills the query.
-                            The answer should be formatted in the following manner, no additional content but this particular format
+                                Seller Name:
+                                Product Description:
+                                MOQ and Price:
+                                Seller Contact:
+                                Seller Location:
+                                """) + '\n\n\n'
 
-                            Seller Name:
-                            Product Description:
-                            MOQ and Price:
-                            Seller Contact:
-                            Seller Location:
-                            """) + '\n'
+        with open('app/Data/Seller_Details_2.txt', 'w', encoding="utf-8") as file:
+            file.write(information)
 
-    return information
+        return information
+    except Exception as e:
+        traceback.print_exc()
+        return f"Exception {e}"
+    

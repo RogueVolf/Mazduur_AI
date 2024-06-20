@@ -38,7 +38,41 @@ def use_llm(message: Annotated[str, "The message for the llm"]) -> Annotated[str
 
     return response
 
-   
+# Tool to get response from an llm
+
+
+def use_llm_naked(system_message: Annotated[str,"The system message for the llm"],
+                  message: Annotated[str, "The message for the llm"]
+                  ) -> Annotated[str, "The response from the llm"]:
+    """
+    Use LLM to complete a particular task
+
+    Returns:
+        str: The LLM's response to the given task
+    """
+
+    client = Groq(
+        api_key=os.environ["GROQ_KEY"],
+    )
+    messages = [
+        {
+            'role': 'system',
+            'content': system_message
+        },
+        {
+            'role': 'user',
+            'content': message
+        }
+    ]
+    chat_completion = client.chat.completions.create(
+        messages=messages,
+        model="llama3-8b-8192",
+    )
+    response = chat_completion.choices[0].message.content
+
+    return response
+
+
 # Function to convert text to speech
 def speak_text(command:Annotated[str,"The text to convert to speech"]) -> None:
     # Initialize the engine
