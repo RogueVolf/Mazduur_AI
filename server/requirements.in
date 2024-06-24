@@ -1,0 +1,6 @@
+cryptography
+fastapi
+groq
+pydantic
+SQLAlchemy
+typing_extensions
