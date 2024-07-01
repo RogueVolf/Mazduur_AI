@@ -2,6 +2,8 @@ import requests
 import json
 import time
 
+#API Docs: https://apidocs.shiprocket.in/
+
 EMAIL = 'meloidasdragneel12@gmail.com'
 PASSWORD = 'manishghoshal99'
 BASE_URL = 'https://apiv2.shiprocket.in/v1/external'
